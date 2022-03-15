@@ -1,0 +1,250 @@
+set tiles (list)
+set isKey 0
+set isShuffling 0
+set hasWon 0
+
+set size 4
+
+define generate
+
+    # tiles are numbers 0 to size-1
+    # 0 is the empty tile
+    
+    set tiles (list)
+    set i 1
+    while (lt [i] (mul [size] [size]))
+        push [tiles] [i]
+        set i (add [i] 1)
+    end
+    push [tiles] 0
+    
+end
+
+define draw
+    
+    clear
+    
+    # draw each tile
+    
+    set x 0
+    set y 0
+    set i 1
+    set tileSize 60
+    
+    while (lte [i] (len [tiles]))
+        if (gt (index [tiles] [i]) 0)
+            color 128 128 128
+            if (eq (mod (index [tiles] [i]) 2) 0)
+                color 96 96 96
+            end
+            rect [x] [y] [tileSize] [tileSize]
+            color 255 255 255
+            text (index [tiles] [i]) [x] [y]
+        end
+        
+        set x (add [x] [tileSize])
+        if (gte (div [x] [tileSize]) [size])
+            set x 0
+            set y (add [y] [tileSize])
+        end
+        set i (add [i] 1)
+    end
+    
+    set x 10
+    
+    if [hasWon]
+        text "you win!" [x] [y]
+    end
+    set y (add [y] 20)
+    
+    text (join "size: " (join [size] (join x [size]))) [x] [y]
+    set y (add [y] 40)
+    text "arrow keys: move" [x] [y]
+    set y (add [y] 20)
+    text "space: shuffle" [x] [y]
+    set y (add [y] 20)
+    text "i/o: increase/decrease size" [x] [y]
+    
+end
+
+define checkWin
+    if (and (not [hasWon]) (not [isShuffling]))
+        set hasWon 1
+        set i 1
+        while (and [hasWon] (lt [i] (len [tiles])))
+            if (not (eq (index [tiles] [i]) [i]))
+                set hasWon 0
+            end
+            set i (add [i] 1)
+        end
+    end
+end
+
+define move
+
+    # find empty tile
+    
+    set i 1
+    set emptyTile 0
+    while (and (lte [i] (len [tiles])) (eq [emptyTile] 0))
+        if (eq (index [tiles] [i]) 0)
+            set emptyTile [i]
+        end
+        set i (add [i] 1)
+    end
+    
+    # find the tile to swap with
+    
+    set isInRange 1
+    set tile [emptyTile]
+    
+    set tile (add [tile] [offsetX])
+    # check if this offset brings us into a different row
+    if (and (gt [offsetX] 0) (eq (mod (sub [tile] 1) [size]) 0))
+        set isInRange 0
+    end
+    if (and (lt [offsetX] 0) (eq (mod [tile] [size]) 0))
+        set isInRange 0
+    end
+    
+    set tile (add [tile] (mul [offsetY] [size]))
+    set isInRange (and [isInRange] (and (gte [tile] 1) (lte [tile] (len [tiles]))))
+    
+    # only do things if the tile is in range
+    
+    if [isInRange]
+    
+        # do the swap
+        
+        replace [tiles] [emptyTile] (index [tiles] [tile])
+        replace [tiles] [tile] 0
+        
+        call checkWin
+        
+        # update screen after performing the move
+        
+        call draw
+    
+    end
+    
+end
+
+define shuffle
+    set isShuffling 1
+    set shuffleCount (mul (mul [size] [size]) 40)
+    set si 0
+    while (lt [si] [shuffleCount])
+        set rand (random 0 3)
+        set offsetX 0
+        set offsetY 0
+        
+        if (eq [rand] 0)
+            set offsetY 1
+        end
+        if (eq [rand] 1)
+            set offsetY -1
+        end
+        if (eq [rand] 2)
+            set offsetX 1
+        end
+        if (eq [rand] 3)
+            set offsetX -1
+        end
+        
+        call move
+        
+        set si (add [si] 1)
+    end
+    set isShuffling 0
+end
+
+define keypress
+
+    if (not [isKey])
+        
+        set isKey 1
+        
+        # determine offset relative to empty tile
+        
+        set offsetX 0
+        set offsetY 0
+        if (eq [key] up)
+            set offsetY 1
+        end
+        if (eq [key] down)
+            set offsetY -1
+        end
+        if (eq [key] left)
+            set offsetX 1
+        end
+        if (eq [key] right)
+            set offsetX -1
+        end
+        
+        call move
+    
+    end
+    
+end
+
+define init
+    set hasWon 0
+    call generate
+    call shuffle
+    call draw
+end
+
+call init
+
+frame
+    
+    # detect key presses
+    
+    set key none
+    
+    if (keydown up)
+        set key up
+        call keypress
+    end
+    
+    if (keydown down)
+        set key down
+        call keypress
+    end
+    
+    if (keydown left)
+        set key left
+        call keypress
+    end
+    
+    if (keydown right)
+        set key right
+        call keypress
+    end
+    
+    if (keydown space)
+        set key space
+        call init
+    end
+    
+    if (keydown i)
+        set key i
+        if (lt [size] 9)
+            set size (add [size] 1)
+            call init
+        end
+    end
+    
+    if (keydown o)
+        set key o
+        if (gt [size] 3)
+            set size (sub [size] 1)
+            call init
+        end
+    end
+    
+    if (eq [key] none)
+        set isKey 0
+    end
+    
+end
